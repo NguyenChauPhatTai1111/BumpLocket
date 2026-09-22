@@ -1,0 +1,10 @@
+Options -Indexes -MultiViews
+DirectoryIndex disabled
+RewriteEngine On
+RewriteRule ^(?:public/)?api(?:/.*)?$ public/index.php [END]
+RewriteRule ^(?:assets/.*|sw.js|manifest.webmanifest|icon.svg)$ public/app/$0 [END]
+RewriteRule ^(?:index.php|public/index.php)$ - [L]
+RewriteRule ^(?:app|bootstrap|config|database|docs|frontend|node_modules|resources|routes|storage|tests|vendor|public)(?:/|$) - [F,L,NC]
+RewriteRule (^|/)\. - [F,L]
+RewriteRule \.(?:php|json|lock|xml|md|log|sqlite|zip)$ - [F,L,NC]
+RewriteRule ^ public/app/index.html [END]

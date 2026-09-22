@@ -1,0 +1,65 @@
+<?php
+
+use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BumpController;
+use App\Http\Controllers\Api\FriendController;
+use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\MomentController;
+use App\Http\Controllers\Api\MusicController;
+use App\Http\Controllers\Api\PresenceController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PushController;
+use App\Http\Controllers\Api\StoryController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/config', fn () => ['vapid_public_key' => config('bumplocket.vapid_public')]);
+Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
+    Route::get('/me', fn (Request $r) => $r->user()->publicProfile());
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::post('/profile', [ProfileController::class, 'update'])->middleware('throttle:10,1');
+    Route::get('/users/{user}/avatar', [ProfileController::class, 'avatar']);
+    Route::post('/presence/online', [PresenceController::class, 'online'])->middleware('throttle:6,1');
+    Route::post('/presence/offline', [PresenceController::class, 'offline'])->middleware('throttle:6,1');
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::get('/friends', [FriendController::class, 'index']);
+    Route::post('/friends', [FriendController::class, 'store'])->middleware('throttle:10,1');
+    Route::patch('/friends/{friendship}', [FriendController::class, 'update']);
+    Route::get('/moments', [MomentController::class, 'index']);
+    Route::post('/moments', [MomentController::class, 'store'])->middleware('throttle:10,1');
+    Route::get('/moments/{moment}/image', [MomentController::class, 'image']);
+    Route::delete('/moments/{moment}', [MomentController::class, 'destroy']);
+    Route::put('/moments/{moment}/like', [MomentController::class, 'like']);
+    Route::delete('/moments/{moment}/like', [MomentController::class, 'unlike']);
+    Route::get('/moments/{moment}/comments', [MomentController::class, 'comments']);
+    Route::post('/moments/{moment}/comments', [MomentController::class, 'comment'])->middleware('throttle:20,1');
+    Route::get('/stories', [StoryController::class, 'index']);
+    Route::get('/stories/archive', [StoryController::class, 'archive']);
+    Route::post('/stories', [StoryController::class, 'store'])->middleware('throttle:10,1');
+    Route::get('/stories/{story}/image', [StoryController::class, 'image']);
+    Route::delete('/stories/{story}', [StoryController::class, 'destroy']);
+    Route::put('/stories/{story}/reaction', [StoryController::class, 'react']);
+    Route::delete('/stories/{story}/reaction', [StoryController::class, 'unreact']);
+    Route::get('/music/search', [MusicController::class, 'search'])->middleware('throttle:20,1');
+    Route::get('/messages', [MessageController::class, 'conversations']);
+    Route::get('/messages/{user}', [MessageController::class, 'index']);
+    Route::post('/messages/{user}', [MessageController::class, 'store'])->middleware('throttle:30,1');
+    Route::get('/bumps', [BumpController::class, 'index']);
+    Route::post('/bumps', [BumpController::class, 'store'])->middleware('throttle:5,1');
+    Route::patch('/bumps/{bump}', [BumpController::class, 'respond']);
+    Route::delete('/bumps/{bump}', [BumpController::class, 'stop']);
+    Route::put('/bumps/{bump}/location', [BumpController::class, 'locate'])->middleware('throttle:12,1');
+    Route::get('/bumps/{bump}/locations', [BumpController::class, 'locations'])->middleware('throttle:30,1');
+    Route::post('/push/subscriptions', [PushController::class, 'store'])->middleware('throttle:10,1');
+    Route::delete('/push/subscriptions', [PushController::class, 'destroy']);
+    Route::prefix('admin')->middleware('admin')->group(function () {
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::post('/users', [AdminUserController::class, 'store']);
+        Route::put('/users/{user}', [AdminUserController::class, 'update']);
+        Route::patch('/users/{user}/ban', [AdminUserController::class, 'ban']);
+        Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
+    });
+});
