@@ -17,10 +17,13 @@ use Illuminate\Support\Facades\Route;
 Route::get('/config', fn () => ['vapid_public_key' => config('bumplocket.vapid_public')]);
 Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/me', fn (Request $r) => $r->user()->publicProfile());
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::post('/profile', [ProfileController::class, 'update'])->middleware('throttle:10,1');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:5,1');
     Route::get('/users/{user}/avatar', [ProfileController::class, 'avatar']);
     Route::post('/presence/online', [PresenceController::class, 'online'])->middleware('throttle:6,1');
     Route::post('/presence/offline', [PresenceController::class, 'offline'])->middleware('throttle:6,1');

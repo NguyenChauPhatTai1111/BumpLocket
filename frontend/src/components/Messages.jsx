@@ -12,9 +12,11 @@ export default function Messages() {
     const { data: conversations = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => api.get("/messages").then((r) => r.data), refetchInterval: 5000 });
     const { data: messages = [] } = useQuery({ queryKey: ["messages", selected?.id], queryFn: () => api.get(`/messages/${selected.id}`).then((r) => r.data), enabled: Boolean(selected), refetchInterval: 3000 });
     useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, selected?.id]);
+    useEffect(() => { if (selected) setBody(localStorage.getItem(`bumplocket_message_draft_${me.id}_${selected.id}`) || ""); }, [selected?.id, me.id]);
+    useEffect(() => { if (!selected) return; const key = `bumplocket_message_draft_${me.id}_${selected.id}`; if (body) localStorage.setItem(key, body); else localStorage.removeItem(key); }, [body, selected?.id, me.id]);
     async function send(e) {
         e.preventDefault(); if (!body.trim() || !selected) return; setSending(true);
-        try { await api.post(`/messages/${selected.id}`, { body: body.trim() }); setBody(""); client.invalidateQueries({ queryKey: ["messages", selected.id] }); client.invalidateQueries({ queryKey: ["conversations"] }); }
+        try { await api.post(`/messages/${selected.id}`, { body: body.trim() }); localStorage.removeItem(`bumplocket_message_draft_${me.id}_${selected.id}`); setBody(""); client.invalidateQueries({ queryKey: ["messages", selected.id] }); client.invalidateQueries({ queryKey: ["conversations"] }); }
         catch (error) { tell(message(error)); } finally { setSending(false); }
     }
     return <section className="messages-shell panel">

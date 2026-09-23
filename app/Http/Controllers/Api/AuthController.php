@@ -8,6 +8,9 @@ use App\Models\User;
 use App\Services\BumpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -36,6 +39,39 @@ class AuthController extends Controller
         }
 
         return ['user' => $u->publicProfile(), 'token' => $u->createToken('web', ['*'], now()->addDays(7))->plainTextToken];
+    }
+
+    public function forgotPassword(Request $r)
+    {
+        $data = $r->validate(['email' => ['required', 'email', 'max:190']]);
+        Password::sendResetLink($data);
+
+        // Luôn trả cùng một phản hồi để không làm lộ email có tồn tại hay không.
+        return response()->json(['message' => 'Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi.']);
+    }
+
+    public function resetPassword(Request $r)
+    {
+        $data = $r->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email', 'max:190'],
+            'password' => ['required', 'string', 'min:10', 'max:128', 'confirmed'],
+        ]);
+
+        $status = Password::reset($data, function (User $user, string $password) {
+            $user->forceFill([
+                'password' => $password,
+                'remember_token' => Str::random(60),
+            ])->save();
+            $user->tokens()->delete();
+            event(new PasswordReset($user));
+        });
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages(['email' => ['Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.']]);
+        }
+
+        return response()->json(['message' => 'Đặt lại mật khẩu thành công.']);
     }
 
     public function logout(Request $r, BumpService $service)

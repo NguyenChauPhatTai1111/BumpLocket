@@ -52,12 +52,14 @@ function Brand() {
     );
 }
 function Auth() {
-    const [register, setRegister] = useState(false),
+    const resetParams = new URLSearchParams(window.location.search);
+    const [screen, setScreen] = useState(resetParams.get("reset_token") ? "reset" : "login"),
         [form, setForm] = useState({
             name: "",
-            login: "",
+            login: resetParams.get("email") || "",
             password: "",
             password_confirmation: "",
+            token: resetParams.get("reset_token") || "",
         }),
         [error, setError] = useState(""),
         [busy, setBusy] = useState(false);
@@ -67,8 +69,26 @@ function Auth() {
         setBusy(true);
         setError("");
         try {
+            if (screen === "forgot") {
+                const { data } = await api.post("/auth/forgot-password", { email: form.login });
+                setError(data.message);
+                return;
+            }
+            if (screen === "reset") {
+                const { data } = await api.post("/auth/reset-password", {
+                    token: form.token,
+                    email: form.login,
+                    password: form.password,
+                    password_confirmation: form.password_confirmation,
+                });
+                window.history.replaceState({}, "", window.location.pathname);
+                setForm({ ...form, password: "", password_confirmation: "", token: "" });
+                setScreen("login");
+                setError(data.message + " Bạn có thể đăng nhập ngay.");
+                return;
+            }
             await unlockSound();
-            const body = register
+            const body = screen === "register"
                 ? {
                       name: form.name,
                       [form.login.includes("@") ? "email" : "phone"]:
@@ -78,7 +98,7 @@ function Auth() {
                   }
                 : { login: form.login, password: form.password };
             const { data } = await api.post(
-                register ? "/auth/register" : "/auth/login",
+                screen === "register" ? "/auth/register" : "/auth/login",
                 body,
             );
             queryClient.clear();
@@ -122,16 +142,24 @@ function Auth() {
                 <form onSubmit={submit}>
                     <p className="eyebrow">CHÀO BẠN, LẠI GẦN ĐÂY NÀO</p>
                     <h2>
-                        {register
+                        {screen === "register"
                             ? "Một vòng bạn bè mới"
-                            : "Vui vì có bạn ở đây."}
+                            : screen === "forgot"
+                              ? "Tìm lại mật khẩu."
+                              : screen === "reset"
+                                ? "Đặt mật khẩu mới."
+                                : "Vui vì có bạn ở đây."}
                     </h2>
                     <p className="muted">
-                        {register
+                        {screen === "register"
                             ? "Tạo tài khoản và mời những người bạn thân."
-                            : "Đăng nhập để nối tiếp những khoảnh khắc."}
+                            : screen === "forgot"
+                              ? "Nhập email đã đăng ký, chúng tôi sẽ gửi liên kết khôi phục."
+                              : screen === "reset"
+                                ? "Chọn mật khẩu mới có ít nhất 10 ký tự."
+                                : "Đăng nhập để nối tiếp những khoảnh khắc."}
                     </p>
-                    {register && (
+                    {screen === "register" && (
                         <label>
                             Tên của bạn
                             <input
@@ -146,10 +174,11 @@ function Auth() {
                         </label>
                     )}
                     <label>
-                        Email hoặc số điện thoại
+                        {screen === "login" || screen === "register" ? "Email hoặc số điện thoại" : "Email"}
                         <input
                             required
-                            autoComplete="username"
+                            type={screen === "forgot" || screen === "reset" ? "email" : "text"}
+                            autoComplete={screen === "forgot" || screen === "reset" ? "email" : "username"}
                             value={form.login}
                             onChange={(e) =>
                                 setForm({ ...form, login: e.target.value })
@@ -157,22 +186,22 @@ function Auth() {
                             placeholder="ban@example.com"
                         />
                     </label>
-                    <label>
-                        Mật khẩu
+                    {screen !== "forgot" && <label>
+                        {screen === "reset" ? "Mật khẩu mới" : "Mật khẩu"}
                         <input
                             required
-                            minLength={register ? 10 : 1}
+                            minLength={screen === "register" || screen === "reset" ? 10 : 1}
                             type="password"
                             autoComplete={
-                                register ? "new-password" : "current-password"
+                                screen === "register" || screen === "reset" ? "new-password" : "current-password"
                             }
                             value={form.password}
                             onChange={(e) =>
                                 setForm({ ...form, password: e.target.value })
                             }
                         />
-                    </label>
-                    {register && (
+                    </label>}
+                    {(screen === "register" || screen === "reset") && (
                         <label>
                             Nhập lại mật khẩu
                             <input
@@ -191,29 +220,42 @@ function Auth() {
                         </label>
                     )}
                     {error && (
-                        <p className="error" role="alert">
+                        <p className={screen === "forgot" || error.includes("thành công") ? "auth-message" : "error"} role="alert">
                             {error}
                         </p>
                     )}
                     <button className="primary full" disabled={busy}>
                         {busy
                             ? "Chờ một chút…"
-                            : register
+                            : screen === "register"
                               ? "Tạo tài khoản"
-                              : "Vào BumpLocket"}{" "}
+                              : screen === "forgot"
+                                ? "Gửi liên kết khôi phục"
+                                : screen === "reset"
+                                  ? "Đặt lại mật khẩu"
+                                  : "Vào BumpLocket"}{" "}
                         <ArrowUpRight size={18} />
                     </button>
+                    {screen === "login" && <button
+                        type="button"
+                        className="text full forgot-link"
+                        onClick={() => { setScreen("forgot"); setError(""); }}
+                    >
+                        Quên mật khẩu?
+                    </button>}
                     <button
                         type="button"
                         className="text full"
                         onClick={() => {
-                            setRegister(!register);
+                            setScreen(screen === "login" ? "register" : "login");
                             setError("");
                         }}
                     >
-                        {register
+                        {screen === "register"
                             ? "Đã có tài khoản? Đăng nhập"
-                            : "Lần đầu ghé qua? Tạo tài khoản"}
+                            : screen === "login"
+                              ? "Lần đầu ghé qua? Tạo tài khoản"
+                              : "Quay lại đăng nhập"}
                     </button>
                     <div className="auth-privacy">
                         <ShieldCheck size={18} />
@@ -229,7 +271,16 @@ function Auth() {
     );
 }
 function Workspace() {
-    const { user, token, tab, setTab, tell } = useSession();
+    const { user, token, tab, setTab: storeSetTab, tell } = useSession();
+    const setTab = (nextTab) => {
+        if (nextTab === tab) return;
+        const update = () => storeSetTab(nextTab);
+        if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            document.startViewTransition(update);
+        } else {
+            update();
+        }
+    };
     const seen = useRef(new Set()),
         [realtime, setRealtime] = useState("Đang kết nối");
     const { data: bumps = [] } = useQuery({

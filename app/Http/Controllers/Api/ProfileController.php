@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Friendship;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ProfileController extends Controller
 {
@@ -37,6 +39,26 @@ class ProfileController extends Controller
         }
 
         return $this->resource($user->refresh());
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string', 'max:128'],
+            'password' => ['required', 'string', 'min:10', 'max:128', 'confirmed', 'different:current_password'],
+        ]);
+
+        $user = $request->user();
+        if (! Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Mật khẩu hiện tại không chính xác.'],
+            ]);
+        }
+
+        $user->password = $data['password'];
+        $user->save();
+
+        return response()->json(['message' => 'Đổi mật khẩu thành công.']);
     }
 
     public function avatar(Request $request, User $user)
